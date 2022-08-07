@@ -1,0 +1,41 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "contracts/FundMe.sol": {
+      "content": "// Objective:\r\n// 1. Receive ETH from sender\r\n// 2. Withdraw ETH to the Owner address\r\n// 3. Set minimum ETH limit for sender\r\n//-----------------------------------------------------------------------------------\r\n\r\n//SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.0;\r\n\r\nimport \"@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol\";\r\nimport \"./PriceConvertor.sol\";\r\n\r\ncontract FundMe {\r\n    using PriceConvertor for uint256;\r\n\r\n    address owner;\r\n    //Minimun USD send should sent\r\n    uint256 constant MinimumUSD = 50;\r\n    address[] public Funders;\r\n    mapping(address => uint256) public addressToAmount;\r\n\r\n    AggregatorV3Interface public priceFeed;\r\n\r\n    constructor(address priceFeedAddress) {\r\n        owner = msg.sender;\r\n        priceFeed = AggregatorV3Interface(priceFeedAddress);\r\n    }\r\n\r\n    function fund() public payable {\r\n        require(\r\n            msg.value.getConversion(priceFeed) >= MinimumUSD,\r\n            \"Don't send enough ETH\"\r\n        ); // 1e18 wei = 1ETH\r\n        Funders.push(msg.sender);\r\n        addressToAmount[msg.sender] = msg.value;\r\n    }\r\n\r\n    modifier ownerOnly() {\r\n        require(msg.sender == owner, \"Only owner can access\");\r\n        _;\r\n    }\r\n\r\n    function withdraw() public ownerOnly {\r\n        for (\r\n            uint256 FunderIndex = 0;\r\n            FunderIndex < Funders.length;\r\n            FunderIndex++\r\n        ) {\r\n            address funder = Funders[FunderIndex];\r\n            addressToAmount[funder] = 0;\r\n        }\r\n\r\n        //Reset Funder Array\r\n        Funders = new address[](0);\r\n\r\n        //Transfer function 2300 gas or Throw error (Revert Transaction)\r\n        // payable (msg.sender).transfer(address(this).balance);\r\n\r\n        //Send function 2300 gas or send bool value(Not Revert Transaction)\r\n        // bool sendSuccess = payable (msg.sender).send(address(this).balance);\r\n        // require(sendSuccess, \"Send Failed\")\r\n\r\n        //Call function we can set gas fee and return bool value & data (Not  Revert Transaction)\r\n        (bool callSucess, ) = payable(msg.sender).call{\r\n            value: address(this).balance\r\n        }(\"\");\r\n        require(callSucess, \"Call Failed\");\r\n    }\r\n\r\n    receive() external payable {\r\n        fund();\r\n    }\r\n\r\n    fallback() external payable {\r\n        fund();\r\n    }\r\n}\r\n"
+    },
+    "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ninterface AggregatorV3Interface {\n  function decimals() external view returns (uint8);\n\n  function description() external view returns (string memory);\n\n  function version() external view returns (uint256);\n\n  function getRoundData(uint80 _roundId)\n    external\n    view\n    returns (\n      uint80 roundId,\n      int256 answer,\n      uint256 startedAt,\n      uint256 updatedAt,\n      uint80 answeredInRound\n    );\n\n  function latestRoundData()\n    external\n    view\n    returns (\n      uint80 roundId,\n      int256 answer,\n      uint256 startedAt,\n      uint256 updatedAt,\n      uint80 answeredInRound\n    );\n}\n"
+    },
+    "contracts/PriceConvertor.sol": {
+      "content": "//SPDX-License-Identifier: MIT\r\n\r\npragma solidity ^0.8.0;\r\n\r\nimport \"@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol\";\r\n\r\nlibrary PriceConvertor {\r\n    function getPrice(AggregatorV3Interface priceFeed)\r\n        internal\r\n        view\r\n        returns (uint256)\r\n    {\r\n        (, int256 price, , , ) = priceFeed.latestRoundData();\r\n        return uint256(price * 1e10);\r\n    }\r\n\r\n    function getConversion(uint256 ethAmount, AggregatorV3Interface priceFeed)\r\n        internal\r\n        view\r\n        returns (uint256)\r\n    {\r\n        uint256 ethPrice = getPrice(priceFeed);\r\n        uint256 ethToUSD = (ethAmount * ethPrice) / 1e18;\r\n        return ethToUSD;\r\n    }\r\n}\r\n"
+    }
+  },
+  "settings": {
+    "optimizer": {
+      "enabled": false,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode",
+          "evm.deployedBytecode",
+          "evm.methodIdentifiers",
+          "metadata",
+          "devdoc",
+          "userdoc",
+          "storageLayout",
+          "evm.gasEstimates"
+        ],
+        "": [
+          "ast"
+        ]
+      }
+    },
+    "metadata": {
+      "useLiteralContent": true
+    }
+  }
+}
