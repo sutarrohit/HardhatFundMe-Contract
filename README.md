@@ -1,4 +1,4 @@
-# Sample Hardhat Project
+# HardhatFundMe-Contract
 
 The FundMe contract accepts Eth and store senders information, it has a withdraw function which allows sender to withdraw their ETH.
 
